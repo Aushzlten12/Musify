@@ -106,3 +106,68 @@ const /** {HTMLElement} */ $rippleElems =
     document.querySelectorAll("[data-ripple]");
 
 $rippleElems?.forEach((item) => ripple(item));
+
+/**
+ * Image animation on loading
+ */
+
+window.addEventListener("DOMContentLoaded", function () {
+  const /** {Array<HTMLElement>} */ $animatedImages = document.querySelectorAll(
+      "[data-image-load-anim]"
+    );
+
+  const addAnimation = function () {
+    this.animate(
+      {
+        opacity: 1,
+      },
+      { duration: 200, fill: "forwards" }
+    );
+  };
+
+  $animatedImages.forEach(($image) => {
+    $image.style.opacity = 0;
+    if ($image.complete) {
+      addAnimation.call($image);
+    } else {
+      $image.addEventListener("load", addAnimation);
+    }
+  });
+});
+
+/**
+ * Bottom nav item active
+ */
+
+const /** {Array<HTMLElement>} */ $bottomNavItems = document.querySelectorAll(
+    "[data-bottom-nav-item]"
+  );
+const /** {HTMLElement} */ $activeBottomNavItem = document.querySelector(
+    "[data-bottom-nav-item].active"
+  );
+const activeNavItem = function () {
+  $activeBottomNavItem?.classList.remove("active");
+  this.classList.add("active");
+};
+
+$bottomNavItems && addEventOnElems($bottomNavItems, "click", activeNavItem);
+
+/**
+ * Player modal toggle
+ */
+const /** {HTMLElement} */ $modalPlayer = document.querySelector(
+    "[data-modal-player]"
+  );
+const /** {Array<HTMLElement>} */ $modalPlayerTogglers =
+    document.querySelectorAll("[data-modal-player-toggler]");
+const /** {HTMLElement} */ $modalPlayerOverlay = document.querySelector(
+    "[data-player-overlay]"
+  );
+
+const toggleModalPlayer = function () {
+  $modalPlayer.classList.toggle("active");
+  $modalPlayerOverlay.classList.toggle("active");
+};
+
+$modalPlayerTogglers &&
+  addEventOnElems($modalPlayerTogglers, "click", toggleModalPlayer);
