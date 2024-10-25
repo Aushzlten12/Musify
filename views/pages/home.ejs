@@ -27,6 +27,15 @@
 </head>
 
 <body>
+
+  <!-- 
+    - #RECENTLY PLAYED
+  -->
+
+  <%- include('../layouts/recent_played', {
+    recentlyPlayed: locals.recentlyPlayedTracks
+  }) %>
+
   <article class="page custom-scrollbar" data-page>
     <!--
         - #TOP APP BAR
@@ -225,6 +234,8 @@
       - #PLAYER LG
     -->
     <%- include('../partials/player_lg') %>
+
+
 
   </article>
 </body>

@@ -9,10 +9,17 @@
  * custom modules
  */
 import { cookies, transferPlayback, play } from "./client_player.api.js";
-import { addEventOnElems } from "../utils.js";
+import { addEventOnElems, msToTimeCode } from "../utils.js";
 
 const /** {Array<HTMLElement>} */ $players =
     document.querySelectorAll("[data-player]");
+
+const /** {HTMLElement} */ $playerNextBtn = document.querySelector(
+    "[data-player-next-btn]"
+  );
+const /** {HTMLElement} */ $playerPrevBtn = document.querySelector(
+    "[data-player-prev-btn]"
+  );
 
 const updatePlayerInfo = (playerState, $player) => {
   const /** {HTMLElement} */ $trackBanner = $player.querySelector(
@@ -60,6 +67,115 @@ const updatePlayerInfo = (playerState, $player) => {
   $player.classList.remove("disabled");
 };
 
+let /** {Array<HTMLElement> | undefined} */ $lastActivePlayBtns = [];
+
+const updateCardPlayBtnState = (playerState) => {
+  const {
+    paused,
+    context: { uri },
+    track_window: {
+      current_track: { uri: trackUri },
+    },
+  } = playerState;
+
+  const /** {Array<HTMLElement>} */ $cardPlayBtns = document.querySelectorAll(
+      `[data-uri="${uri}"]`
+    );
+
+  const /** {Array<HTMLElement>} */ $trackPlayBtns = document.querySelectorAll(
+      `[data-track-uri="${trackUri}"]`
+    );
+
+  const /** {Array<HTMLElement>} */ $currentActivePlayBtns = [
+      ...$cardPlayBtns,
+      ...$trackPlayBtns,
+    ];
+  $lastActivePlayBtns.forEach(($playBtn) => {
+    $playBtn.classList.remove("active");
+    $playBtn.dataset.playBtn = "play";
+  });
+
+  $currentActivePlayBtns.forEach(($playBtn) => {
+    $playBtn.classList[paused ? "remove" : "add"]("active");
+    $playBtn.dataset.playBtn = paused ? "play" : "pause";
+  });
+
+  $lastActivePlayBtns = $currentActivePlayBtns;
+};
+
+const updatePlayerBtnState = (playerState, $player) => {
+  const /** {HTMLElement} */ $playerControlPlay = $player.querySelector(
+      "[data-player-control-play]"
+    );
+  const { paused } = playerState;
+
+  $playerControlPlay.classList[paused ? "remove" : "add"]("active");
+  $playerControlPlay.dataset.playBtn = paused ? "play" : "pause";
+};
+
+const /** {string} */ documentTitle = document.title;
+
+const updateDocumentTitle = (playerState) => {
+  // set document title when playing
+  const {
+    paused,
+    track_window: {
+      current_track: { artists: trackArtists, name: trackName },
+    },
+  } = playerState;
+
+  const /** {string} */ artistNameStr = trackArtists
+      .map(({ name }) => name)
+      .join(", ");
+
+  document.title = paused
+    ? documentTitle
+    : `${trackName} • ${artistNameStr} | Musify`;
+};
+
+const /** {HTMLElement} */ $playerLgProgress = document.querySelector(
+    "[data-player-progress-lg]"
+  );
+
+const /** {HTMLElement} */ $playerSmProgress = document.querySelector(
+    "[data-player-progress-sm]"
+  );
+
+const /** {HTMLElement} */ $playerLgProgressPos = document.querySelector(
+    "[data-progress-pos]"
+  );
+
+const /** {HTMLElement} */ $playerLgProgressDuration = document.querySelector(
+    "[data-progress-duration]"
+  );
+
+let /** {NodeJS.Timeout | undefined} */ lastProgressInterval;
+
+const updatePlayerProgress = (playerState) => {
+  const { position, duration, paused } = playerState;
+
+  // progress initial value
+  let currentPosition = position;
+  $playerLgProgress.max = duration;
+  $playerSmProgress.max = duration;
+  $playerLgProgress.value = currentPosition;
+  $playerSmProgress.value = currentPosition;
+  $playerLgProgressDuration.textContent = msToTimeCode(duration);
+  $playerLgProgressPos.textContent = msToTimeCode(currentPosition);
+
+  lastProgressInterval && clearInterval(lastProgressInterval);
+
+  if (!paused) {
+    const currentProgressInterval = setInterval(() => {
+      currentPosition += 1000;
+      $playerLgProgress.value = currentPosition;
+      $playerSmProgress.value = currentPosition;
+      $playerLgProgressPos.textContent = msToTimeCode(currentPosition);
+    }, 1000);
+    lastProgressInterval = currentProgressInterval;
+  }
+};
+
 /**
  * when any changes occur in player this function will be execute e.g change track/volume/play/pause/seek/next/previous
  *
@@ -70,6 +186,22 @@ const playerStateChange = (playerState) => {
 
   // update player ui
   $players.forEach((player) => updatePlayerInfo(playerState, player));
+
+  // update card play btn ui state e.g. play, pause
+  updateCardPlayBtnState(playerState);
+
+  // update player control play btn ui state after state change
+  $players.forEach((player) => updatePlayerBtnState(playerState, player));
+
+  // update document title when playing track
+  updateDocumentTitle(playerState);
+
+  // update player progress
+  updatePlayerProgress(playerState);
+
+  // disabled next and prev button if there is no track available
+  $playerNextBtn.disabled = !track_window.next_tracks.length;
+  $playerPrevBtn.disabled = !track_window.previous_tracks.length;
 };
 
 /**
@@ -133,6 +265,21 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
     addEventOnElems($playBtns, "click", function () {
       togglePlay.call(this, player);
+    });
+
+    // skip to next track
+    $playerNextBtn.addEventListener("click", async () => {
+      await player.nextTrack();
+    });
+
+    // skip to previous track
+    $playerPrevBtn.addEventListener("click", async () => {
+      await player.previousTrack();
+    });
+
+    // control player seek
+    $playerLgProgress.addEventListener("input", async function () {
+      await player.seek(this.value);
     });
   });
 

@@ -60,7 +60,7 @@ const home = async (req, res) => {
 
   res.render("./pages/home", {
     currentProfile,
-    // recentlyPlayedTracks,
+    recentlyPlayedTracks,
     recommendedAlbums,
     recommendedArtists,
     newRelease,
